@@ -1,69 +1,125 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type Expense = {
+  id: string;
+  amount: number;
+  memo: string;
+  created_at: string;
+};
+
+function isToday(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
 
 export default function Home() {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) setError("読み込みに失敗しました: " + error.message);
+    else setExpenses(data ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const value = Number(amount);
+    if (!Number.isInteger(value) || value <= 0) {
+      setError("金額は1以上の整数で入力してください");
+      return;
+    }
+    setError("");
+    const { error } = await supabase
+      .from("expenses")
+      .insert({ amount: value, memo });
+    if (error) {
+      setError("保存に失敗しました: " + error.message);
+      return;
+    }
+    setAmount("");
+    setMemo("");
+    await load();
+  }
+
+  const todayTotal = expenses
+    .filter((x) => isToday(x.created_at))
+    .reduce((sum, x) => sum + x.amount, 0);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-zinc-50 text-zinc-900">
+      <div className="mx-auto max-w-md p-4">
+        <h1 className="text-xl font-bold">おかいも</h1>
+
+        <div className="mt-4 rounded-xl bg-white p-4 shadow">
+          <p className="text-sm text-zinc-500">今日使った額</p>
+          <p className="text-3xl font-bold">¥{todayTotal.toLocaleString()}</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="金額(円)"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="rounded-lg border border-zinc-300 bg-white p-3 text-lg"
+          />
+          <input
+            type="text"
+            placeholder="メモ(任意)"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            className="rounded-lg border border-zinc-300 bg-white p-3"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-zinc-900 p-3 font-bold text-white"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            記録する
+          </button>
+        </form>
+
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+        <ul className="mt-6 divide-y divide-zinc-200 rounded-xl bg-white shadow">
+          {loading && <li className="p-4 text-zinc-500">読み込み中...</li>}
+          {!loading && expenses.length === 0 && (
+            <li className="p-4 text-zinc-500">まだ記録がありません</li>
+          )}
+          {expenses.map((x) => (
+            <li key={x.id} className="flex items-center justify-between p-4">
+              <div>
+                <p className="font-medium">{x.memo || "(メモなし)"}</p>
+                <p className="text-xs text-zinc-500">
+                  {new Date(x.created_at).toLocaleString("ja-JP")}
+                </p>
+              </div>
+              <p className="font-bold">¥{x.amount.toLocaleString()}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </main>
   );
 }
