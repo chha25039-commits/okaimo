@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+const CATEGORIES = ["食費", "交通費", "娯楽", "日用品", "その他"];
+
 type Expense = {
   id: string;
   amount: number;
   memo: string;
+  category: string;
   created_at: string;
 };
 
@@ -24,6 +27,7 @@ export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -52,13 +56,24 @@ export default function Home() {
     setError("");
     const { error } = await supabase
       .from("expenses")
-      .insert({ amount: value, memo });
+      .insert({ amount: value, memo, category });
     if (error) {
       setError("保存に失敗しました: " + error.message);
       return;
     }
     setAmount("");
     setMemo("");
+    await load();
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("この記録を削除しますか?")) return;
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error) {
+      setError("削除に失敗しました: " + error.message);
+      return;
+    }
+    setError("");
     await load();
   }
 
@@ -77,6 +92,23 @@ export default function Home() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategory(c)}
+                className={
+                  "rounded-full border px-3 py-1 text-sm " +
+                  (category === c
+                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    : "border-zinc-300 bg-white text-zinc-700")
+                }
+              >
+                {c}
+              </button>
+            ))}
+          </div>
           <input
             type="text"
             inputMode="numeric"
@@ -108,14 +140,28 @@ export default function Home() {
             <li className="p-4 text-zinc-500">まだ記録がありません</li>
           )}
           {expenses.map((x) => (
-            <li key={x.id} className="flex items-center justify-between p-4">
-              <div>
-                <p className="font-medium">{x.memo || "(メモなし)"}</p>
+            <li key={x.id} className="flex items-center justify-between gap-2 p-4">
+              <div className="min-w-0">
+                <p className="truncate font-medium">
+                  <span className="mr-2 rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+                    {x.category}
+                  </span>
+                  {x.memo || "(メモなし)"}
+                </p>
                 <p className="text-xs text-zinc-500">
                   {new Date(x.created_at).toLocaleString("ja-JP")}
                 </p>
               </div>
-              <p className="font-bold">¥{x.amount.toLocaleString()}</p>
+              <div className="flex items-center gap-3">
+                <p className="font-bold">¥{x.amount.toLocaleString()}</p>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(x.id)}
+                  className="text-sm text-red-600"
+                >
+                  削除
+                </button>
+              </div>
             </li>
           ))}
         </ul>
