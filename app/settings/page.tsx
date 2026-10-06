@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import AuthGate from "@/components/AuthGate";
 import { getMonthKey, prevMonthKey, yen } from "@/lib/money";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const [savingsInput, setSavingsInput] = useState("");
   const [budgetInput, setBudgetInput] = useState("");
   const [incomeInput, setIncomeInput] = useState("");
   const [savingsNote, setSavingsNote] = useState("");
   const [budgetNote, setBudgetNote] = useState("");
   const [incomeNote, setIncomeNote] = useState("");
-  const [hasSettings, setHasSettings] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -64,7 +64,6 @@ export default function SettingsPage() {
     if (sError) {
       setError("設定の読み込みに失敗しました: " + sError.message);
     } else if (s) {
-      setHasSettings(true);
       setSavingsNote(
         `登録中: ${yen(s.initial_savings)}(${new Date(
           s.savings_start_at
@@ -86,12 +85,9 @@ export default function SettingsPage() {
       return;
     }
     setError("");
-    const { error } = hasSettings
-      ? await supabase
-          .from("settings")
-          .update({ initial_savings: value })
-          .eq("id", 1)
-      : await supabase.from("settings").insert({ id: 1, initial_savings: value });
+    const { error } = await supabase
+      .from("settings")
+      .upsert({ initial_savings: value }, { onConflict: "user_id" });
     if (error) {
       setError("貯金額の保存に失敗しました: " + error.message);
       return;
@@ -112,7 +108,10 @@ export default function SettingsPage() {
     setError("");
     const { error } = await supabase
       .from("budgets")
-      .upsert({ month: getMonthKey(new Date()), amount: value });
+      .upsert(
+        { month: getMonthKey(new Date()), amount: value },
+        { onConflict: "user_id,month" }
+      );
     if (error) {
       setError("予算の保存に失敗しました: " + error.message);
       return;
@@ -132,13 +131,20 @@ export default function SettingsPage() {
     setError("");
     const { error } = await supabase
       .from("monthly_incomes")
-      .upsert({ month: getMonthKey(new Date()), amount: value });
+      .upsert(
+        { month: getMonthKey(new Date()), amount: value },
+        { onConflict: "user_id,month" }
+      );
     if (error) {
       setError("給料の保存に失敗しました: " + error.message);
       return;
     }
     setMessage("今月の給料を保存しました");
     await load();
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
   }
 
   return (
@@ -241,7 +247,23 @@ export default function SettingsPage() {
 
         {message && <p className="mt-3 text-sm text-green-700">{message}</p>}
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-8 text-sm text-zinc-600 underline"
+        >
+          ログアウト
+        </button>
       </div>
     </main>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <AuthGate>
+      <SettingsContent />
+    </AuthGate>
   );
 }
