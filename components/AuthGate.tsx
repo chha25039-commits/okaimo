@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { Sprig } from "@/components/Leaf";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -31,28 +32,29 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <main className="min-h-screen bg-zinc-50 p-4 text-zinc-500">
-        読み込み中...
-      </main>
+      <main className="p-6 text-sm text-ink-soft">読み込み中...</main>
     );
   }
 
   if (!session) {
     return (
-      <main className="min-h-screen bg-zinc-50 text-zinc-900">
-        <div className="mx-auto max-w-md p-4 pt-24 text-center">
-          <h1 className="text-2xl font-bold">おかいも</h1>
-          <p className="mt-2 text-sm text-zinc-500">
-            ログインして、自分の記録を見る
+      <main>
+        <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
+          <Sprig className="h-40 w-32 text-leaf" />
+          <h1 className="mt-4 font-serif text-4xl tracking-widest">おかいも</h1>
+          <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+            バイト生活のための、
+            <br />
+            やさしいお金の記録
           </p>
           <button
             type="button"
             onClick={handleLogin}
-            className="mt-6 w-full rounded-lg bg-zinc-900 p-3 font-bold text-white"
+            className="mt-10 w-full rounded-2xl bg-leaf py-3 font-medium text-white shadow-sm transition hover:bg-leaf-dark active:scale-[0.99]"
           >
             Googleでログイン
           </button>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-sm text-clay">{error}</p>}
         </div>
       </main>
     );
